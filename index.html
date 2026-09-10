@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tiktactownship</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --paper:#ece7d9; --ink:#1b1a16; --faint:#8a8577; --line:#1b1a16; --open:#2f7d3a; }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{ background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace; line-height:1.5; -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column; align-items:center; padding:28px 16px 48px; min-height:100vh; text-align:center; }
+  h1{ font-weight:600; font-size:clamp(1.6rem,7vw,2.4rem); letter-spacing:.14em; margin:0; text-transform:lowercase }
+  .tagline{ color:var(--faint); font-size:.78rem; margin:.5em 0 1.2em; max-width:32ch }
+
+  #tabs{ display:flex; gap:1.4rem; justify-content:center; margin-bottom:1.2rem; font-size:.85rem }
+  #tabs a{ cursor:pointer; color:var(--faint); text-decoration:none; padding-bottom:2px; border-bottom:2px solid transparent }
+  #tabs a.active{ color:var(--ink); border-bottom-color:var(--ink) }
+
+  #status{ margin-bottom:1.1rem; min-height:3.2em }
+  .turn{ font-size:.78rem; color:var(--faint); letter-spacing:.05em }
+  .count{ font-size:clamp(1.15rem,5vw,1.5rem); font-weight:600; margin:.1em 0 }
+  .count.open{ color:var(--open) }
+  .rule{ font-size:.72rem; color:var(--faint) }
+
+  #pager{ margin-bottom:1.1rem; font-size:.9rem; display:none; gap:.5rem; align-items:center; justify-content:center }
+  #pager button,#statpager button{ font:inherit; background:none; border:1.5px dashed var(--ink); padding:2px 10px; cursor:pointer; border-radius:0 }
+  #pager button:disabled,#statpager button:disabled{ opacity:.3; cursor:default }
+  #pager input,#statpager input{ font:inherit; width:3.4em; text-align:center; background:var(--paper); border:1.5px dashed var(--ink); padding:2px; border-radius:0 }
+
+  #board{ display:grid; grid-template-columns:repeat(3,1fr); width:min(88vw,360px); aspect-ratio:1; margin:0 auto }
+  .cell{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.15em;
+    background:none; border:0; font:inherit; color:inherit; padding:4px; cursor:default; position:relative }
+  .cell:not(:nth-child(3n)){ border-right:2px dashed var(--line) }
+  .cell:nth-child(-n+6){ border-bottom:2px dashed var(--line) }
+  .mark{ font-size:clamp(1.7rem,9vw,2.5rem); font-weight:600; line-height:1 }
+  .town{ font-size:.58rem; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .town a{ color:var(--ink); text-decoration:underline; text-underline-offset:2px }
+  .cell.open{ cursor:pointer }
+  @media (hover:hover){ .cell.open:hover{ background:rgba(27,26,22,.06) } }
+  .cell.win{ background:rgba(47,125,58,.14) } .cell.win .mark{ color:var(--open) }
+
+  #result{ margin:1.1rem 0 0; min-height:1.4em; font-weight:600 }
+  #result a{ color:var(--ink) } #result .win{ color:var(--open) }
+  #drill{ margin-top:1rem; font-size:.72rem; text-align:left; display:none }
+  #drill .mv{ margin:2px 0 } #drill a{ color:var(--ink); text-decoration:underline }
+
+  #geo{ margin-top:1.6rem; font-size:.8rem }
+  #geo button{ font:inherit; font-size:.8rem; color:var(--ink); background:none; border:1.5px dashed var(--ink); padding:6px 14px; cursor:pointer; border-radius:0 }
+  #geo button:hover{ background:rgba(27,26,22,.06) }
+  #geostatus{ display:block; margin-top:.55em; color:var(--faint) } #geostatus b{ color:var(--ink); font-weight:600 }
+  #msg{ margin-top:.9rem; font-size:.82rem; min-height:1.2em }
+
+  #emoji{ margin-top:.9rem; display:none; gap:.35em; justify-content:center; flex-wrap:wrap }
+  #emoji.on{ display:flex }
+  #emoji button{ font:inherit; font-size:1.1rem; background:none; border:1.5px dashed var(--faint); padding:2px 7px; cursor:pointer; border-radius:0 }
+  #emoji button.sel{ border-color:var(--open); background:rgba(47,125,58,.12) }
+
+  /* stats */
+  #stats{ display:none; width:min(94vw,470px); margin:0 auto; text-align:left }
+  .statsummary{ text-align:center; font-size:.8rem; color:var(--faint); margin-bottom:1rem }
+  .bars{ margin-bottom:1.5rem }
+  .statrow{ display:flex; align-items:center; gap:.55rem; margin:.4rem 0; font-size:.8rem }
+  .statlabel{ width:4.6em; text-align:right; color:var(--faint) }
+  .barwrap{ flex:1; background:rgba(27,26,22,.08); height:1.15em }
+  .bar{ display:block; height:100%; background:var(--open) }
+  .statnum{ width:6.4em; font-size:.72rem; color:var(--faint) }
+  #statsel{ display:flex; gap:1rem; justify-content:center; margin:0 0 .9rem; font-size:.82rem }
+  #statsel a{ cursor:pointer; color:var(--faint); border-bottom:2px solid transparent; padding-bottom:1px }
+  #statsel a.active{ color:var(--ink); border-bottom-color:var(--ink) }
+  table.rank{ width:100%; border-collapse:collapse; font-size:.82rem }
+  table.rank th,table.rank td{ text-align:left; padding:3px 6px; border-bottom:1px dashed rgba(27,26,22,.25) }
+  table.rank th{ color:var(--faint); font-weight:600 }
+  table.rank td:first-child,table.rank th:first-child{ width:2.5em; color:var(--faint) }
+  table.rank td:last-child,table.rank th:last-child{ text-align:right }
+  #statpager{ display:flex; gap:.5rem; align-items:center; justify-content:center; margin:1rem 0; font-size:.85rem }
+  .exportrow{ text-align:center; margin-top:1.4rem; border-top:1px dashed rgba(27,26,22,.25); padding-top:1rem }
+  .exportrow button{ font:inherit; font-size:.8rem; background:none; border:1.5px dashed var(--ink); padding:6px 12px; cursor:pointer; border-radius:0 }
+
+  footer{ margin-top:2.4rem; color:var(--faint); font-size:.68rem; max-width:34ch }
+</style>
+</head>
+<body>
+  <h1>tiktactownship</h1>
+  <p class="tagline">one tic-tac-toe board. the whole internet plays it. one move every 30 seconds.</p>
+
+  <nav id="tabs"><a id="tab-play">play</a><a id="tab-archive">archive</a><a id="tab-stats">stats</a></nav>
+
+  <div id="status"></div>
+  <div id="pager"></div>
+  <div id="board"></div>
+  <div id="result"></div>
+  <div id="drill"></div>
+  <div id="stats"></div>
+  <div id="emoji"></div>
+
+  <div id="geo">
+    <button id="detect">find my town</button>
+    <span id="geostatus">tap "find my town" — you need a town to play.</span>
+  </div>
+  <div id="msg"></div>
+
+  <footer>first tap when the window opens gets the square. the town that lands the winning move goes on the board forever.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================ CONFIG ============================ */
+const SUPABASE_URL = "https://ufytfudgkamcvmalvxlk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_lWBuyPDuS7XJ7omknKGf8Q__S3D9a6B";
+const WINDOW = 30;
+const MARKS  = { 1:"X", 2:"O" };
+const LINES  = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const LIVE_TAIL_CAP = 60;      // failsafe: the live path never asks Supabase for more than this
+const STAT_PER = 20;           // ranking rows per page
+const SHOW_EMOJIS = false; const EMOJIS = []; const MAX_EMOJIS = 4;
+
+/* ===================== LOCATION (swap point) ===================== */
+let MYLOC = null;
+async function detectLocation(){
+  const pos = await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:false,timeout:10000,maximumAge:600000}));
+  const { latitude, longitude } = pos.coords;
+  const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+  const j = await r.json();
+  const subCode=j.principalSubdivisionCode||"", stripped=subCode.split("-").slice(1).join("-");
+  const region=/^[A-Za-z]{2,3}$/.test(stripped)?stripped:(j.principalSubdivision||null);
+  MYLOC={ city:j.city||j.locality||null, region, country:j.countryCode||j.countryName||null };
+  if(!MYLOC.city && !MYLOC.region) throw new Error("couldn't read a town from your location");
+  return MYLOC;
+}
+/* ================================================================= */
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+let MODE="play", S=null, tick=null, poll=null, chosen=[], drawnKey="";
+
+const filled   = cells => cells.filter(Boolean).length;
+const turnMark = cells => filled(cells)%2===0 ? 1 : 2;
+function secsLeft(){ if(!S||!S.last_action_at) return 0; return Math.max(0,Math.ceil((new Date(S.last_action_at).getTime()+WINDOW*1000-Date.now())/1000)); }
+function mapsUrl(c){ const q=[c.city,c.region,c.country].filter(Boolean).join(", "); return q?"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q):null; }
+function townLabel(c){ return [c.city,c.region,c.country].filter(Boolean).join(", ")||"anon"; }
+function cellLabel(cell){ return "r"+(Math.floor(cell/3)+1)+"c"+((cell%3)+1); }
+function winLine(cells,mark){ for(const L of LINES){ if(L.every(i=>cells[i]&&cells[i].m===mark)) return L; } return null; }
+function cellsFromMoves(moves){ const c=Array(9).fill(null); (moves||[]).forEach(m=>{ c[m.cell]={m:m.mark,city:m.city,region:m.region,country:m.country,e:(m.emojis&&m.emojis.length)?m.emojis:undefined}; }); return c; }
+const msg = t => { $("#msg").textContent = t||""; };
+
+function paintBoard(cells,wl,interactive){
+  const b=$("#board"); b.innerHTML="";
+  cells.forEach((c,i)=>{
+    const el=document.createElement(c||!interactive?"div":"button"); el.className="cell";
+    if(c){
+      if(wl.includes(i)) el.classList.add("win");
+      const m=document.createElement("div"); m.className="mark"; m.textContent=MARKS[c.m]; el.appendChild(m);
+      const t=document.createElement("div"); t.className="town"; const url=mapsUrl(c);
+      if(url){ const a=document.createElement("a"); a.href=url; a.target="_blank"; a.rel="noopener noreferrer"; a.textContent=townLabel(c); t.appendChild(a); }
+      else t.textContent=townLabel(c);
+      el.appendChild(t);
+    } else if(interactive){ el.classList.add("open"); el.setAttribute("aria-label","play this square"); el.onclick=()=>play(i); }
+    b.appendChild(el);
+  });
+}
+
+/* ============================ LIVE BOARD ============================ */
+async function load(){
+  const { data, error } = await sb.from("games").select("*").eq("status","active").order("id",{ascending:false}).limit(1).maybeSingle();
+  if(error){ msg("couldn't reach the board — retrying…"); setTimeout(()=>{ if(MODE==="play") load(); },4000); return; }
+  S=data; render(); schedule();
+}
+async function refetch(){ if(!S) return; const { data }=await sb.from("games").select("*").eq("id",S.id).maybeSingle(); if(data) S=data; }
+function render(){ renderStatus(); maybeDrawBoard(); renderResult(); renderGeo(); renderEmoji(); }
+function renderStatus(){
+  const el=$("#status");
+  if(!S){ el.innerHTML='<div class="count">the township is booting…</div>'; return; }
+  if(S.status!=="active"){ el.innerHTML=""; return; }
+  const next=MARKS[turnMark(S.cells)], s=secsLeft(), open=s===0;
+  el.innerHTML=`<div class="turn">next mark: ${next}</div><div class="count${open?" open":""}">${open?"open — tap a square":"opens in "+s+"s"}</div><div class="rule">first tap when it opens gets the square.</div>`;
+}
+function maybeDrawBoard(){
+  if(!S) return;
+  const open=S.status==="active"&&secsLeft()===0, key=[S.id,S.version,S.status,open].join(":");
+  if(key!==drawnKey){ paintBoard(S.cells, S.win_line||[], open); drawnKey=key; }
+}
+function renderResult(){
+  const el=$("#result");
+  if(!S||S.status==="active"){ el.innerHTML=""; return; }
+  const s=secsLeft(), next=s>0?`next board opens in ${s}s`:"starting the next board…";
+  if(S.status==="draw"){ el.innerHTML=`a draw — nobody takes it.<br><span class="turn">${next}</span>`; }
+  else{ const c={city:S.winner_city,region:S.winner_region,country:S.winner_country}, url=mapsUrl(c);
+    const town=url?`<a href="${url}" target="_blank" rel="noopener noreferrer">${townLabel(c)}</a>`:townLabel(c);
+    el.innerHTML=`<span class="win">${MARKS[S.winner_mark]}</span> wins for ${town}.<br><span class="turn">${next}</span>`; }
+}
+function renderGeo(){ if(MYLOC) $("#geostatus").innerHTML=`playing from <b>${townLabel(MYLOC)}</b>.`; }
+function renderEmoji(){
+  const el=$("#emoji");
+  if(!SHOW_EMOJIS||!EMOJIS.length){ el.className=""; return; }
+  el.className="on"; el.innerHTML="";
+  EMOJIS.forEach((g,id)=>{ const btn=document.createElement("button"); btn.textContent=g; if(chosen.includes(id)) btn.classList.add("sel");
+    btn.onclick=()=>{ const at=chosen.indexOf(id); if(at>=0) chosen.splice(at,1); else if(chosen.length<MAX_EMOJIS) chosen.push(id); renderEmoji(); }; el.appendChild(btn); });
+}
+async function play(i){
+  if(!S||S.status!=="active") return;
+  if(S.cells[i]){ msg("that square is taken."); return; }
+  if(secsLeft()>0){ msg(`not open yet — ${secsLeft()}s.`); return; }
+  if(!MYLOC){ msg("find your town first — you need one to play."); return; }
+  const params={p_game_id:S.id,p_expected_version:S.version,p_cell:i,p_city:MYLOC.city,p_region:MYLOC.region,p_country:MYLOC.country};
+  if(chosen.length) params.p_emojis=chosen.slice();
+  const { data, error }=await sb.rpc("ttt_move",params);
+  if(error){ msg("error: "+error.message); return; }
+  if(data.ok){ msg(`you played ${MARKS[data.mark]} for ${townLabel(MYLOC)}.`); chosen=[]; }
+  else msg(({stale:"someone beat you to it.",cooldown:"not open yet.",taken:"that square is taken.",over:"that board just ended."})[data.reason]||data.reason);
+  await refetch(); render(); schedule();
+}
+function schedule(){
+  clearInterval(tick); clearInterval(poll);
+  tick=setInterval(()=>{ if(!S) return; const s=secsLeft();
+    if(S.status==="active") renderStatus(); else renderResult(); maybeDrawBoard();
+    if(S.status!=="active"&&s===0){ clearInterval(tick); clearInterval(poll); load(); } },250);
+  poll=setInterval(async ()=>{ if(!S||document.hidden) return;
+    if(S.status==="active"&&secsLeft()===0){ const v=S.version, st=S.status; await refetch();
+      if(S.version!==v||S.status!==st){ render(); schedule(); } } },1300);
+}
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden&&MODE==="play"){ refetch().then(()=>{ render(); schedule(); }); }});
+
+/* ============================ ARCHIVE ============================ */
+let staticLatest=0, archiveMax=0, archivePage=0;
+const GAME_CACHE=new Map();
+async function ensureArchive(){
+  try{ staticLatest=((await (await fetch("index.json?_="+Date.now())).json()).latest)||0; }catch{ staticLatest=0; }
+  let tailMax=staticLatest;
+  try{
+    const { data }=await sb.from("games").select("id,status,winner_mark,winner_city,winner_region,winner_country,cells")
+      .neq("status","active").gt("id",staticLatest).order("id",{ascending:false}).limit(LIVE_TAIL_CAP);
+    (data||[]).forEach(g=>{ GAME_CACHE.set(g.id,{game_no:g.id,status:g.status,winner_mark:g.winner_mark,
+      winner_city:g.winner_city,winner_region:g.winner_region,winner_country:g.winner_country,cells:g.cells,moves:null,_live:true});
+      if(g.id>tailMax) tailMax=g.id; });
+  }catch{}
+  archiveMax=Math.max(staticLatest,tailMax);
+}
+async function getGame(n){
+  const c=GAME_CACHE.get(n);
+  if(c && !c._live) return c;
+  if(c && c._live){
+    if(!c.moves){ try{ const { data }=await sb.from("move_records").select("*").eq("game_no",n).order("move_number");
+      c.moves=(data||[]).map(m=>({move_number:m.move_number,mark:m.mark,cell:m.cell,cell_label:m.cell_label,city:m.city,region:m.region,country:m.country,emojis:m.emojis,maps_url:m.maps_url})); }catch{ c.moves=[]; } }
+    return c;
+  }
+  try{ const r=await fetch(`games/${n}.json`); if(!r.ok) throw 0; const g=await r.json(); GAME_CACHE.set(n,g); return g; }catch{ return null; }
+}
+function renderPager(){
+  const el=$("#pager");
+  el.innerHTML=`<button id="apre">◀</button> game <input id="abox" value="${archivePage}"> of ${archiveMax} <button id="anxt">▶</button>`;
+  $("#apre").disabled=archivePage<=1; $("#anxt").disabled=archivePage>=archiveMax;
+  $("#apre").onclick=()=>{ if(archivePage>1){archivePage--; showArchive(archivePage);} };
+  $("#anxt").onclick=()=>{ if(archivePage<archiveMax){archivePage++; showArchive(archivePage);} };
+  $("#abox").onchange=()=>{ const v=parseInt($("#abox").value,10); if(!isNaN(v)){ archivePage=Math.min(archiveMax,Math.max(1,v)); showArchive(archivePage);} };
+}
+async function openArchive(){
+  $("#board").innerHTML=""; $("#result").innerHTML=""; $("#drill").innerHTML="loading history…";
+  await ensureArchive();
+  if(archiveMax<1){ $("#pager").innerHTML="no finished games yet — play one!"; $("#drill").innerHTML=""; return; }
+  if(archivePage<1||archivePage>archiveMax) archivePage=archiveMax;
+  showArchive(archivePage);
+}
+async function showArchive(n){
+  renderPager(); $("#result").innerHTML=""; $("#drill").innerHTML=`loading game #${n}…`;
+  const g=await getGame(n);
+  if(!g){ $("#board").innerHTML=""; $("#drill").innerHTML=`game #${n} isn't snapshotted yet — try a newer one.`; return; }
+  const cells=g.cells||cellsFromMoves(g.moves), wl=(g.winner_mark?winLine(cells,g.winner_mark):null)||[];
+  paintBoard(cells,wl,false);
+  if(g.status==="draw") $("#result").innerHTML="a draw — nobody took it.";
+  else if(g.winner_mark){ const c={city:g.winner_city,region:g.winner_region,country:g.winner_country}, url=mapsUrl(c);
+    const town=url?`<a href="${url}" target="_blank" rel="noopener noreferrer">${townLabel(c)}</a>`:townLabel(c);
+    $("#result").innerHTML=`<span class="win">${MARKS[g.winner_mark]}</span> wins for ${town}.`; }
+  renderDrill(g.moves);
+}
+function renderDrill(moves){
+  const el=$("#drill"); el.innerHTML="";
+  (moves||[]).forEach(m=>{ const line=document.createElement("div"); line.className="mv";
+    const c={city:m.city,region:m.region,country:m.country}, place=townLabel(c), url=m.maps_url||mapsUrl(c);
+    line.append(`#${m.move_number} ${MARKS[m.mark]} @${m.cell_label||cellLabel(m.cell)} · `);
+    if(url&&place!=="anon"){ const a=document.createElement("a"); a.href=url; a.target="_blank"; a.rel="noopener noreferrer"; a.textContent=place; line.append(a); }
+    else line.append(place);
+    el.appendChild(line); });
+}
+
+/* ============================ STATS (static only) ============================ */
+let statsData=null, statView="country", statPage=1;
+async function computeStats(){
+  await ensureArchive();
+  const a={ games:0, outcomes:{x:0,o:0,draw:0}, by_country:{}, by_region:{}, by_city:{}, emojis:{} };
+  for(let n=1;n<=staticLatest;n++){
+    const g=await getGame(n); if(!g||g._live) continue;      // stats = snapshotted games only
+    a.games++;
+    if(g.status==="x_win") a.outcomes.x++; else if(g.status==="o_win") a.outcomes.o++; else a.outcomes.draw++;
+    if(g.winner_mark){
+      const co=g.winner_country||"??", rg=[g.winner_region,g.winner_country].filter(Boolean).join(", ")||"??", ci=[g.winner_city,g.winner_region,g.winner_country].filter(Boolean).join(", ")||"anon";
+      a.by_country[co]=(a.by_country[co]||0)+1; a.by_region[rg]=(a.by_region[rg]||0)+1; a.by_city[ci]=(a.by_city[ci]||0)+1;
+    }
+    (g.moves||[]).forEach(m=>(m.emojis||[]).forEach(e=>a.emojis[e]=(a.emojis[e]||0)+1));
+  }
+  return a;
+}
+async function openStats(){ $("#stats").innerHTML="crunching the numbers…"; statsData=await computeStats(); statPage=1; renderStats(); }
+function bar(label,count,total){ const pct=total?Math.round(count/total*100):0;
+  return `<div class="statrow"><span class="statlabel">${label}</span><span class="barwrap"><span class="bar" style="width:${pct}%"></span></span><span class="statnum">${count} · ${pct}%</span></div>`; }
+function statEntries(){ const map=statView==="country"?statsData.by_country:statView==="state"?statsData.by_region:statsData.by_city; return Object.entries(map||{}).sort((a,b)=>b[1]-a[1]); }
+function renderStats(){
+  const el=$("#stats");
+  if(!statsData){ el.innerHTML="stats aren't available yet."; return; }
+  const o=statsData.outcomes, total=o.x+o.o+o.draw;
+  if(!statsData.games){ el.innerHTML="no snapshotted games yet — play some, then run the snapshot Action."; return; }
+  const entries=statEntries(), pages=Math.max(1,Math.ceil(entries.length/STAT_PER));
+  if(statPage>pages) statPage=pages; if(statPage<1) statPage=1;
+  const slice=entries.slice((statPage-1)*STAT_PER, statPage*STAT_PER), startRank=(statPage-1)*STAT_PER;
+  el.innerHTML=
+    `<div class="statsummary">${statsData.games} games · X ${o.x} · O ${o.o} · draws ${o.draw}</div>`+
+    `<div class="bars">${bar("X wins",o.x,total)}${bar("O wins",o.o,total)}${bar("draws",o.draw,total)}</div>`+
+    `<div id="statsel"><a data-v="country" class="${statView==='country'?'active':''}">country</a><a data-v="state" class="${statView==='state'?'active':''}">state</a><a data-v="city" class="${statView==='city'?'active':''}">city</a></div>`+
+    `<table class="rank"><thead><tr><th>#</th><th>${statView}</th><th>wins</th></tr></thead><tbody>`+
+    (slice.length? slice.map((e,i)=>`<tr><td>${startRank+i+1}</td><td>${e[0]}</td><td>${e[1]}</td></tr>`).join(""):`<tr><td colspan="3">no wins recorded yet</td></tr>`)+
+    `</tbody></table>`+
+    `<div id="statpager"><button id="sppre">◀</button> page <input id="spbox" value="${statPage}"> of ${pages} <button id="spnxt">▶</button></div>`+
+    `<div class="exportrow"><button id="csvbtn">⬇ download every move (CSV)</button> <span id="csvmsg" class="rule"></span></div>`;
+  el.querySelectorAll("#statsel a").forEach(a=>a.onclick=()=>{ statView=a.dataset.v; statPage=1; renderStats(); });
+  $("#sppre").disabled=statPage<=1; $("#spnxt").disabled=statPage>=pages;
+  $("#sppre").onclick=()=>{ if(statPage>1){statPage--; renderStats();} };
+  $("#spnxt").onclick=()=>{ if(statPage<pages){statPage++; renderStats();} };
+  $("#spbox").onchange=()=>{ const v=parseInt($("#spbox").value,10); if(!isNaN(v)){ statPage=Math.min(pages,Math.max(1,v)); renderStats();} };
+  $("#csvbtn").onclick=exportCSV;
+}
+function toCSV(rows){ if(!rows.length) return ""; const cols=Object.keys(rows[0]);
+  const esc=v=>{ v=(v==null?"":String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  return cols.join(",")+"\n"+rows.map(r=>cols.map(c=>esc(r[c])).join(",")).join("\n"); }
+async function exportCSV(){
+  const btn=$("#csvbtn"); if(btn) btn.disabled=true; $("#csvmsg").textContent="building…";
+  await ensureArchive(); const rows=[];
+  for(let n=1;n<=staticLatest;n++){ const g=await getGame(n); if(!g||g._live) continue;
+    (g.moves||[]).forEach(m=>rows.push({ game_no:g.game_no||n, status:g.status, winner_mark:g.winner_mark||"",
+      winner_city:g.winner_city||"", winner_region:g.winner_region||"", winner_country:g.winner_country||"",
+      move_number:m.move_number, mark:m.mark, cell:m.cell, cell_label:m.cell_label||cellLabel(m.cell),
+      city:m.city||"", region:m.region||"", country:m.country||"", emojis:(m.emojis||[]).join(" "), made_at:m.made_at||"" })); }
+  if(btn) btn.disabled=false;
+  if(!rows.length){ $("#csvmsg").textContent="nothing to export yet."; return; }
+  const blob=new Blob([toCSV(rows)],{type:"text/csv"}), url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="tiktactownship_archive.csv"; a.click(); URL.revokeObjectURL(url);
+  $("#csvmsg").textContent=`exported ${rows.length} moves across ${new Set(rows.map(r=>r.game_no)).size} games.`;
+}
+
+/* ============================ MODE SWITCH ============================ */
+function setMode(m){
+  MODE=m; const play=m==="play", arch=m==="archive", stat=m==="stats";
+  $("#tab-play").classList.toggle("active",play); $("#tab-archive").classList.toggle("active",arch); $("#tab-stats").classList.toggle("active",stat);
+  $("#status").style.display=play?"":"none"; $("#geo").style.display=play?"":"none"; $("#emoji").style.display=play?"":"none";
+  $("#pager").style.display=arch?"flex":"none"; $("#drill").style.display=arch?"block":"none";
+  $("#board").style.display=stat?"none":"grid"; $("#result").style.display=stat?"none":"block"; $("#stats").style.display=stat?"block":"none";
+  msg(""); clearInterval(tick); clearInterval(poll);
+  if(play) load(); else if(arch) openArchive(); else openStats();
+}
+$("#tab-play").onclick=()=>setMode("play");
+$("#tab-archive").onclick=()=>setMode("archive");
+$("#tab-stats").onclick=()=>setMode("stats");
+$("#detect").onclick=async ()=>{ $("#geostatus").textContent="finding your town…";
+  try{ await detectLocation(); renderGeo(); render(); msg(""); }catch(e){ $("#geostatus").textContent="location blocked — allow it, then tap again."; } };
+
+setMode("play");
+</script>
+</body>
+</html>
